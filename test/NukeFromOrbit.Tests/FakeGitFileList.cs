@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -14,7 +15,7 @@ namespace NukeFromOrbit.Tests
 
         public FakeGitFileList(IEnumerable<string> list)
         {
-            _list = new HashSet<string>(list);
+            _list = new HashSet<string>(list.Concat(list.Select(Path.GetDirectoryName)));
         }
 
         public Task<HashSet<string>> GetAsync() => Task.FromResult(_list);

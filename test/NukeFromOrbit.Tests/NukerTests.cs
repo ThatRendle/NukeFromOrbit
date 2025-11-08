@@ -1,5 +1,6 @@
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
-using NSubstitute;
 using Xunit;
 
 namespace NukeFromOrbit.Tests
@@ -8,11 +9,11 @@ namespace NukeFromOrbit.Tests
     {
         private static readonly string[] Files =
         {
-            @"D:\Fake\src\Fake\Fake.csproj",
-            @"D:\Fake\src\Fake\Fake.cs",
-            @"D:\Fake\src\Fake\bin\Debug\Fake.dll",
-            @"D:\Fake\src\Fake\obj\project.assets.json",
-            @"D:\Fake\src\Fake\node_modules\foo\bin\foo.js",
+            @"/Users/rendle/Fake/src/FakeFake.csproj",
+            @"/Users/rendle/Fake/src/FakeFake.cs",
+            @"/Users/rendle/Fake/src/Fake/bin/Debug/Fake.dll",
+            @"/Users/rendle/Fake/src/Fake/obj/project.assets.json",
+            @"/Users/rendle/Fake/src/Fake/node_modules/foo/bin/foo.js",
         };
         
         [Fact]
@@ -20,14 +21,14 @@ namespace NukeFromOrbit.Tests
         {
             var fakeFileSystem = FakeFileSystem.Fake(Files);
             var fakeGitFileList = new FakeGitFileList();
-            var fakeConsole = Substitute.For<IConsole>();
+            var fakeConsole = new FakeConsole();
             
-            var nuker = await Nuker.CreateAsync(@"D:\Fake", fakeFileSystem, fakeGitFileList, fakeConsole);
+            var nuker = await Nuker.CreateAsync(@"/Users/rendle/Fake", fakeFileSystem, fakeGitFileList, fakeConsole);
 
             var actual = nuker.GetItemsToBeNuked();
-            Assert.Contains(actual, i => i.Path == @"D:\Fake\src\Fake\bin" && i.Type == ItemType.Directory);
-            Assert.Contains(actual, i => i.Path == @"D:\Fake\src\Fake\obj" && i.Type == ItemType.Directory);
-            Assert.DoesNotContain(actual, i => i.Path == @"D:\Fake\src\Fake\node_modules\foo\bin");
+            Assert.Contains(actual, i => i is { Path: @"/Users/rendle/Fake/src/Fake/bin", Type: ItemType.Directory });
+            Assert.Contains(actual, i => i is { Path: @"/Users/rendle/Fake/src/Fake/obj", Type: ItemType.Directory });
+            Assert.DoesNotContain(actual, i => i.Path == @"/Users/rendle/Fake/src/Fake/node_modules/foo/bin");
         }
         
         [Fact]
@@ -35,16 +36,19 @@ namespace NukeFromOrbit.Tests
         {
             var fakeFileSystem = FakeFileSystem.Fake(Files);
             var fakeGitFileList = new FakeGitFileList();
-            var fakeConsole = Substitute.For<IConsole>();
+            var fakeConsole = new FakeConsole();
             
-            var nuker = await Nuker.CreateAsync(@"D:\Fake", fakeFileSystem, fakeGitFileList, fakeConsole);
+            var nuker = await Nuker.CreateAsync(@"/Users/rendle/Fake", fakeFileSystem, fakeGitFileList, fakeConsole);
 
             var actual = nuker.GetItemsToBeNuked();
             nuker.NukeItems(actual);
+            
+            var directories = fakeFileSystem.Directory.GetDirectories("/Users/rendle/Fake/src/Fake").Select(Path.GetFileName).ToArray();
+            Assert.DoesNotContain("bin", directories);
+            Assert.DoesNotContain("obj", directories);
 
-            fakeFileSystem.Directory.Received().Delete(@"D:\Fake\src\Fake\bin", true);
-            fakeFileSystem.Directory.Received().Delete(@"D:\Fake\src\Fake\obj", true);
-            fakeFileSystem.Directory.DidNotReceive().Delete(@"D:\Fake\src\Fake\node_modules\foo\bin");
+            directories = fakeFileSystem.Directory.GetDirectories("/Users/rendle/Fake/src/Fake/node_modules/foo").Select(Path.GetFileName).ToArray();
+            Assert.Contains("bin", directories);
         }
     }
 }

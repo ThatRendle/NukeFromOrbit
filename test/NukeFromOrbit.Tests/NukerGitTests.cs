@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO.Abstractions;
+using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
-using NSubstitute;
 using Xunit;
 
 namespace NukeFromOrbit.Tests
@@ -11,11 +11,11 @@ namespace NukeFromOrbit.Tests
     {
         private static readonly string[] Files =
         {
-            @"D:\Fake\src\Fake\Fake.csproj",
-            @"D:\Fake\src\Fake\Fake.cs",
-            @"D:\Fake\src\Fake\bin\Debug\Fake.dll",
-            @"D:\Fake\src\Fake\bin\IAmVersionControlled.txt",
-            @"D:\Fake\src\Fake\obj\project.assets.json",
+            @"/Users/rendle/Fake/src/Fake/Fake.csproj",
+            @"/Users/rendle/Fake/src/Fake/Fake.cs",
+            @"/Users/rendle/Fake/src/Fake/bin/Debug/Fake.dll",
+            @"/Users/rendle/Fake/src/Fake/bin/IAmVersionControlled.txt",
+            @"/Users/rendle/Fake/src/Fake/obj/project.assets.json",
         };
         
         [Fact]
@@ -23,25 +23,25 @@ namespace NukeFromOrbit.Tests
         {
             var fakeFileSystem = FakeFileSystem.Fake(Files);
             
-            var gitFileList = FakeFileList(fakeFileSystem);
+            var gitFileList = FakeFileList();
 
-            var fakeConsole = Substitute.For<IConsole>();
-            
-            var nuker = await Nuker.CreateAsync(@"D:\Fake", fakeFileSystem, gitFileList, fakeConsole);
+            var fakeConsole = new FakeConsole();
+
+            var nuker = await Nuker.CreateAsync(@"/Users/rendle/Fake", fakeFileSystem, gitFileList, fakeConsole);
 
             var actual = nuker.GetItemsToBeNuked();
-            Assert.Contains(actual, i => i.Path == @"D:\Fake\src\Fake\bin\Debug\Fake.dll" && i.Type == ItemType.File);
-            Assert.Contains(actual, i => i.Path == @"D:\Fake\src\Fake\obj" && i.Type == ItemType.Directory);
-            Assert.DoesNotContain(actual, i => i.Path == @"D:\Fake\src\Fake\bin\IAmVersionControlled.txt");
+            Assert.Contains(actual, i => i.Path == @"/Users/rendle/Fake/src/Fake/bin/Debug/Fake.dll" && i.Type == ItemType.File);
+            Assert.Contains(actual, i => i.Path == @"/Users/rendle/Fake/src/Fake/obj" && i.Type == ItemType.Directory);
+            Assert.DoesNotContain(actual, i => i.Path == @"/Users/rendle/Fake/src/Fake/bin/IAmVersionControlled.txt");
         }
 
-        private static GitFileList FakeFileList(IFileSystem fakeFileSystem)
+        private static IGitFileList FakeFileList()
         {
             var gitFiles = new HashSet<string>(Files, StringComparer.OrdinalIgnoreCase);
-            gitFiles.Remove(@"D:\Fake\src\Fake\bin\Debug\Fake.dll");
-            gitFiles.Remove(@"D:\Fake\src\Fake\obj\project.assets.json");
+            gitFiles.Remove(@"/Users/rendle/Fake/src/Fake/bin/Debug/Fake.dll");
+            gitFiles.Remove(@"/Users/rendle/Fake/src/Fake/obj/project.assets.json");
 
-            var gitFileList = new GitFileList(@"D:\Fake", fakeFileSystem, () => Task.FromResult(gitFiles));
+            var gitFileList = new FakeGitFileList(gitFiles);
             return gitFileList;
         }
 
@@ -49,17 +49,26 @@ namespace NukeFromOrbit.Tests
         public async Task NukesItems()
         {
             var fakeFileSystem = FakeFileSystem.Fake(Files);
-            var gitFileList = FakeFileList(fakeFileSystem);
-            var fakeConsole = Substitute.For<IConsole>();
+            var gitFileList = FakeFileList();
+            var fakeConsole = new FakeConsole();
             
-            var nuker = await Nuker.CreateAsync(@"D:\Fake", fakeFileSystem, gitFileList, fakeConsole);
+            var nuker = await Nuker.CreateAsync(@"/Users/rendle/Fake", fakeFileSystem, gitFileList, fakeConsole);
 
             var actual = nuker.GetItemsToBeNuked();
             nuker.NukeItems(actual);
 
-            fakeFileSystem.Directory.DidNotReceive().Delete(@"D:\Fake\src\Fake\bin", true);
-            fakeFileSystem.File.Received().Delete(@"D:\Fake\src\Fake\bin\Debug\Fake.dll");
-            fakeFileSystem.Directory.Received().Delete(@"D:\Fake\src\Fake\obj", true);
+            var entries = fakeFileSystem.Directory.GetDirectories("/Users/rendle/Fake/src/Fake").Select(Path.GetFileName).ToArray();
+            Assert.Contains("bin", entries);
+            Assert.DoesNotContain("obj", entries);
+            
+            entries = fakeFileSystem.Directory.GetFiles("/Users/rendle/Fake/src/Fake/bin").Select(Path.GetFileName).ToArray();
+            Assert.Contains("IAmVersionControlled.txt", entries);
+            entries = fakeFileSystem.Directory.GetFiles("/Users/rendle/Fake/src/Fake/bin/Debug").Select(Path.GetFileName).ToArray();
+            Assert.DoesNotContain("Fake.dll", entries);
+
+            // fakeFileSystem.Directory.DidNotReceive().Delete("/Users/rendle/Fake/src/Fake/bin", true);
+            // fakeFileSystem.File.Received().Delete(@"/Users/rendle/Fake/src/Fake/bin/Debug/Fake.dll");
+            // fakeFileSystem.Directory.Received().Delete(@"/Users/rendle/Fake/src/Fake/obj", true);
         }
     }
 }
