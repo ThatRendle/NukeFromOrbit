@@ -11,12 +11,18 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>nuke-from-orbit</ToolCommandName>
     <PackageId>RendleLabs.NukeFromOrbit</PackageId>
+    <PackageLicenseExpression>MPL-2.0</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="CliWrap" Version="3.9.0" />
     <PackageReference Include="System.CommandLine" Version="2.0.0-rc.2.25502.107" />
     <PackageReference Include="System.IO.Abstractions" Version="22.0.16" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="/" />
   </ItemGroup>
 
 </Project>
